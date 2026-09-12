@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PachiCounter</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-state="normal" data-connected="false">
+
+<div class="counter">
+  <header class="counter__head">
+    <span class="counter__machine" id="machine">—</span>
+    <span class="counter__state" id="state">通常</span>
+  </header>
+
+  <div class="counter__main">
+    <div class="field field--hero">
+      <span class="field__label">回転</span>
+      <span class="field__value" id="current-rotations">0</span>
+      <span class="field__sub" id="total-rotations">/ 0</span>
+    </div>
+
+    <div class="field">
+      <span class="field__label">初当たり確率</span>
+      <span class="field__value" id="first-hit-rate">1/-</span>
+    </div>
+
+    <div class="field">
+      <span class="field__label">大当り</span>
+      <span class="field__value" id="bonuses">0</span>
+      <span class="field__sub" id="first-hits">(0)</span>
+    </div>
+
+    <div class="field" id="chain-field" hidden>
+      <span class="field__label">連荘</span>
+      <span class="field__value" id="chain">0</span>
+    </div>
+
+    <div class="field">
+      <span class="field__label" id="balls-label">持玉</span>
+      <span class="field__value" id="balls-held">0</span>
+      <span class="field__sub" id="balls-note"></span>
+    </div>
+  </div>
+
+  <ul class="metrics" id="metrics"></ul>
+
+  <footer class="counter__foot">
+    <span id="normal-rotations">通常 0</span>
+    <span id="sec-per-rotation">—</span>
+    <span id="device">—</span>
+  </footer>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

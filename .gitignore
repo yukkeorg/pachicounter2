@@ -1,0 +1,11 @@
+# Python 版の参照用チェックアウト
+PachiCounter/
+
+# ビルド成果物
+/pachicounter
+/pachicounter-*
+/pachicounter.exe
+
+# 手元の状態。生信号ログのうち、テストの fixture として置くものは
+# testdata/ に入れるのでコミットする（docs/adr/0010 を参照）。
+/state/

@@ -1,0 +1,24 @@
+# PachiCounter が USB-HID の GPIO デバイスを読めるようにする udev ルール。
+#
+# /dev/hidraw* は既定で root のものなので、ルールを入れないと一般ユーザから
+# 読めない。カーネルの HID ドライバを引き剥がす必要はないので（libusb ではなく
+# hidraw を直接使う）、権限を与えるだけで足りる。
+#
+#   sudo cp contrib/udev/99-pachicounter.rules /etc/udev/rules.d/
+#   sudo udevadm control --reload-rules
+#   sudo udevadm trigger
+#
+# TAG+="uaccess" は、そのマシンに実際にログインしているユーザへアクセス権を渡す
+# systemd-logind の仕組みである。デーモンとして別ユーザで動かす場合は、この行の
+# 代わりに GROUP と MODE を使う（下のコメントを参照）。
+
+# km2net USB-IO 2.0
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="1352", ATTRS{idProduct}=="0120", TAG+="uaccess"
+
+# USB-IO 2.0 秋月電子互換品
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="1352", ATTRS{idProduct}=="0121", TAG+="uaccess"
+
+# デーモンとして動かす場合の例。pachicounter グループを作って、動かすユーザを
+# そこに入れてから使う。
+# SUBSYSTEM=="hidraw", ATTRS{idVendor}=="1352", ATTRS{idProduct}=="0120", GROUP="pachicounter", MODE="0660"
+# SUBSYSTEM=="hidraw", ATTRS{idVendor}=="1352", ATTRS{idProduct}=="0121", GROUP="pachicounter", MODE="0660"
