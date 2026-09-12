@@ -4,8 +4,11 @@ PachiCounter
 パチンコ台の外部情報出力端子から出る信号を USB-HID の GPIO デバイス経由で読み取り、
 現在の回転数や初当たり確率を配信する、ホール設置のデータカウンター相当のソフトウェアです。
 
-Python 版を Go で書き直したもので、**コア（常駐して集計と配信をする部分）**、
-**機種プラグイン（機種の仕様）**、**フロント（見た目）** を分けてあります。
+[yukkeorg/PachiCounter](https://github.com/yukkeorg/PachiCounter)（Python 版）を Go で
+書き直したものです。以降の開発はこちらで行います。Python 版はそのまま残してあります。
+
+**コア（常駐して集計と配信をする部分）**、**機種プラグイン（機種の仕様）**、
+**フロント（見た目）** を分けた構成にしました。
 
 
 構成
@@ -62,8 +65,8 @@ LOW になります。既定でアクティブローとして扱います（`-ac
 ----
 
 ```
-$ git clone https://github.com/yukkeorg/pachicounter.git
-$ cd pachicounter
+$ git clone https://github.com/yukkeorg/pachicounter2.git
+$ cd pachicounter2
 $ go build -o pachicounter ./cmd/pachicounter
 ```
 

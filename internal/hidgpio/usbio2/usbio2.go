@@ -12,9 +12,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/yukkeorg/pachicounter/internal/hid"
-	"github.com/yukkeorg/pachicounter/internal/hidgpio"
-	"github.com/yukkeorg/pachicounter/pkg/signal"
+	"github.com/yukkeorg/pachicounter2/internal/hid"
+	"github.com/yukkeorg/pachicounter2/internal/hidgpio"
+	"github.com/yukkeorg/pachicounter2/pkg/signal"
 )
 
 const (

@@ -3,7 +3,7 @@ package app
 import (
 	"sync"
 
-	"github.com/yukkeorg/pachicounter/api"
+	"github.com/yukkeorg/pachicounter2/api"
 )
 
 // hub はスナップショットを購読者へ配る。

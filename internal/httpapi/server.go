@@ -17,10 +17,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/yukkeorg/pachicounter/api"
-	"github.com/yukkeorg/pachicounter/internal/counter"
-	"github.com/yukkeorg/pachicounter/pkg/machine"
-	"github.com/yukkeorg/pachicounter/web"
+	"github.com/yukkeorg/pachicounter2/api"
+	"github.com/yukkeorg/pachicounter2/internal/counter"
+	"github.com/yukkeorg/pachicounter2/pkg/machine"
+	"github.com/yukkeorg/pachicounter2/web"
 )
 
 // heartbeatInterval は SSE の接続を維持するためにコメント行を送る間隔。

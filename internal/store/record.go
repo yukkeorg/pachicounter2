@@ -3,7 +3,7 @@ package store
 import (
 	"time"
 
-	"github.com/yukkeorg/pachicounter/pkg/signal"
+	"github.com/yukkeorg/pachicounter2/pkg/signal"
 )
 
 // Kind は生信号ログに並ぶレコードの種別。

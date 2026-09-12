@@ -14,8 +14,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/yukkeorg/pachicounter/internal/hid"
-	"github.com/yukkeorg/pachicounter/pkg/signal"
+	"github.com/yukkeorg/pachicounter2/internal/hid"
+	"github.com/yukkeorg/pachicounter2/pkg/signal"
 )
 
 // ErrNoDevice は対応するデバイスが 1 つも見つからなかったことを表す。

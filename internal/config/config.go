@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yukkeorg/pachicounter/pkg/signal"
+	"github.com/yukkeorg/pachicounter2/pkg/signal"
 )
 
 // Wiring はビット位置と信号の役割の対応。

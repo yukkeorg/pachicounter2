@@ -8,7 +8,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/yukkeorg/pachicounter/pkg/signal"
+	"github.com/yukkeorg/pachicounter2/pkg/signal"
 )
 
 // Step は流すイベント 1 つ分の指示。

@@ -17,23 +17,23 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/yukkeorg/pachicounter/internal/app"
-	"github.com/yukkeorg/pachicounter/internal/config"
-	"github.com/yukkeorg/pachicounter/internal/hidgpio"
-	"github.com/yukkeorg/pachicounter/internal/httpapi"
-	"github.com/yukkeorg/pachicounter/internal/source/dummy"
-	"github.com/yukkeorg/pachicounter/internal/source/replay"
-	"github.com/yukkeorg/pachicounter/internal/source/usbhid"
-	"github.com/yukkeorg/pachicounter/internal/store"
-	"github.com/yukkeorg/pachicounter/pkg/machine"
-	pcsignal "github.com/yukkeorg/pachicounter/pkg/signal"
+	"github.com/yukkeorg/pachicounter2/internal/app"
+	"github.com/yukkeorg/pachicounter2/internal/config"
+	"github.com/yukkeorg/pachicounter2/internal/hidgpio"
+	"github.com/yukkeorg/pachicounter2/internal/httpapi"
+	"github.com/yukkeorg/pachicounter2/internal/source/dummy"
+	"github.com/yukkeorg/pachicounter2/internal/source/replay"
+	"github.com/yukkeorg/pachicounter2/internal/source/usbhid"
+	"github.com/yukkeorg/pachicounter2/internal/store"
+	"github.com/yukkeorg/pachicounter2/pkg/machine"
+	pcsignal "github.com/yukkeorg/pachicounter2/pkg/signal"
 
 	// 機種プラグインとデバイスドライバは動的ロードせず、ここでの import によって
 	// バイナリに含める。詳細は
 	// docs/adr/0003-compile-time-plugin-registration.md を参照。
-	_ "github.com/yukkeorg/pachicounter/internal/hidgpio/usbio2"
-	_ "github.com/yukkeorg/pachicounter/pkg/machine/stealth"
-	_ "github.com/yukkeorg/pachicounter/pkg/machine/vb"
+	_ "github.com/yukkeorg/pachicounter2/internal/hidgpio/usbio2"
+	_ "github.com/yukkeorg/pachicounter2/pkg/machine/stealth"
+	_ "github.com/yukkeorg/pachicounter2/pkg/machine/vb"
 )
 
 func main() {

@@ -4,11 +4,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yukkeorg/pachicounter/internal/config"
-	"github.com/yukkeorg/pachicounter/internal/counter"
-	"github.com/yukkeorg/pachicounter/pkg/machine"
-	_ "github.com/yukkeorg/pachicounter/pkg/machine/stealth"
-	"github.com/yukkeorg/pachicounter/pkg/signal"
+	"github.com/yukkeorg/pachicounter2/internal/config"
+	"github.com/yukkeorg/pachicounter2/internal/counter"
+	"github.com/yukkeorg/pachicounter2/pkg/machine"
+	_ "github.com/yukkeorg/pachicounter2/pkg/machine/stealth"
+	"github.com/yukkeorg/pachicounter2/pkg/signal"
 )
 
 // ビット位置。回路図どおりの割り当て。

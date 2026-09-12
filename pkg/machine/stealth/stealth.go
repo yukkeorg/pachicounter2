@@ -11,8 +11,8 @@
 package stealth
 
 import (
-	"github.com/yukkeorg/pachicounter/pkg/machine"
-	"github.com/yukkeorg/pachicounter/pkg/signal"
+	"github.com/yukkeorg/pachicounter2/pkg/machine"
+	"github.com/yukkeorg/pachicounter2/pkg/signal"
 )
 
 const (

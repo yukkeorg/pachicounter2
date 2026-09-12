@@ -9,7 +9,7 @@ package machine
 import (
 	"time"
 
-	"github.com/yukkeorg/pachicounter/pkg/signal"
+	"github.com/yukkeorg/pachicounter2/pkg/signal"
 )
 
 // StateKind は状態層の区分。機種を知らないフロントでも色や演出を決められるように、

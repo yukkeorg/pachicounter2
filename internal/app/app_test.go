@@ -8,15 +8,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yukkeorg/pachicounter/api"
-	"github.com/yukkeorg/pachicounter/internal/app"
-	"github.com/yukkeorg/pachicounter/internal/config"
-	"github.com/yukkeorg/pachicounter/internal/source/dummy"
-	"github.com/yukkeorg/pachicounter/internal/store"
-	"github.com/yukkeorg/pachicounter/pkg/machine"
-	"github.com/yukkeorg/pachicounter/pkg/signal"
+	"github.com/yukkeorg/pachicounter2/api"
+	"github.com/yukkeorg/pachicounter2/internal/app"
+	"github.com/yukkeorg/pachicounter2/internal/config"
+	"github.com/yukkeorg/pachicounter2/internal/source/dummy"
+	"github.com/yukkeorg/pachicounter2/internal/store"
+	"github.com/yukkeorg/pachicounter2/pkg/machine"
+	"github.com/yukkeorg/pachicounter2/pkg/signal"
 
-	_ "github.com/yukkeorg/pachicounter/pkg/machine/stealth"
+	_ "github.com/yukkeorg/pachicounter2/pkg/machine/stealth"
 )
 
 const (

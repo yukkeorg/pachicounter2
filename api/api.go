@@ -9,7 +9,7 @@ package api
 import (
 	"time"
 
-	"github.com/yukkeorg/pachicounter/pkg/machine"
+	"github.com/yukkeorg/pachicounter2/pkg/machine"
 )
 
 // SchemaVersion はスナップショットの構造の版。互換性を壊す変更で上げる。

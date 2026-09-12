@@ -12,12 +12,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/yukkeorg/pachicounter/api"
-	"github.com/yukkeorg/pachicounter/internal/config"
-	"github.com/yukkeorg/pachicounter/internal/counter"
-	"github.com/yukkeorg/pachicounter/internal/store"
-	"github.com/yukkeorg/pachicounter/pkg/machine"
-	"github.com/yukkeorg/pachicounter/pkg/signal"
+	"github.com/yukkeorg/pachicounter2/api"
+	"github.com/yukkeorg/pachicounter2/internal/config"
+	"github.com/yukkeorg/pachicounter2/internal/counter"
+	"github.com/yukkeorg/pachicounter2/internal/store"
+	"github.com/yukkeorg/pachicounter2/pkg/machine"
+	"github.com/yukkeorg/pachicounter2/pkg/signal"
 )
 
 // Options はアプリの設定。

@@ -9,10 +9,10 @@ import (
 	"sort"
 	"time"
 
-	"github.com/yukkeorg/pachicounter/api"
-	"github.com/yukkeorg/pachicounter/internal/config"
-	"github.com/yukkeorg/pachicounter/pkg/machine"
-	"github.com/yukkeorg/pachicounter/pkg/signal"
+	"github.com/yukkeorg/pachicounter2/api"
+	"github.com/yukkeorg/pachicounter2/internal/config"
+	"github.com/yukkeorg/pachicounter2/pkg/machine"
+	"github.com/yukkeorg/pachicounter2/pkg/signal"
 )
 
 // ballsPer250 は貸玉 250 個を 1 単位とする回転率の分母。4 円パチンコの千円分。

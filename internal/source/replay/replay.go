@@ -12,8 +12,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/yukkeorg/pachicounter/internal/store"
-	"github.com/yukkeorg/pachicounter/pkg/signal"
+	"github.com/yukkeorg/pachicounter2/internal/store"
+	"github.com/yukkeorg/pachicounter2/pkg/signal"
 )
 
 // Options は再生の設定。

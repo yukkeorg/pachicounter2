@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/yukkeorg/pachicounter/api"
+	"github.com/yukkeorg/pachicounter2/api"
 )
 
 // Pointer は「今どのセッションを集計しているか」を指す。スナップショットと

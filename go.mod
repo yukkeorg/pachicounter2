@@ -1,4 +1,4 @@
-module github.com/yukkeorg/pachicounter
+module github.com/yukkeorg/pachicounter2
 
 go 1.27.1
 
