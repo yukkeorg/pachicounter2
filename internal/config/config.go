@@ -191,6 +191,6 @@ type Ops struct {
 func DefaultOps() Ops {
 	return Ops{
 		Debounce:          8 * time.Millisecond,
-		MaxSecPerRotation: 40,
+		MaxSecPerRotation: 300,
 	}
 }
