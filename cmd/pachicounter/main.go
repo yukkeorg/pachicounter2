@@ -19,9 +19,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/yukkeorg/pachicounter2/api"
 	"github.com/yukkeorg/pachicounter2/internal/app"
 	"github.com/yukkeorg/pachicounter2/internal/config"
 	"github.com/yukkeorg/pachicounter2/internal/httpapi"
+	"github.com/yukkeorg/pachicounter2/internal/opcmd"
 	"github.com/yukkeorg/pachicounter2/internal/source"
 	"github.com/yukkeorg/pachicounter2/internal/store"
 	"github.com/yukkeorg/pachicounter2/pkg/machine"
@@ -38,7 +40,15 @@ import (
 )
 
 func main() {
-	err := run(os.Args[1:])
+	args := os.Args[1:]
+
+	// 先頭がオプションでなければ、操作コマンドのサブコマンドとして扱う。コアの起動は
+	// オプションだけで指定する。詳細は docs/adr/0011-operation-command-as-subcommand.md を参照。
+	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
+		os.Exit(opcmd.Run(args[0], args[1:], opcmd.DefaultEnv()))
+	}
+
+	err := run(args)
 
 	var usage *usageError
 	switch {
@@ -232,7 +242,7 @@ func parseFlags(args []string, stderr io.Writer) (options, error) {
 	fs.Float64Var(&opts.ops.MaxSecPerRotation, "max-sec-per-rotation", defaultOps.MaxSecPerRotation,
 		"1 回転あたりの秒数の上限。これを超えた間隔は離席とみなす")
 
-	fs.StringVar(&opts.listen, "listen", "127.0.0.1:18888",
+	fs.StringVar(&opts.listen, "listen", api.DefaultAddr,
 		"HTTP の待ち受けアドレス。LAN に開くときだけ明示的に変える")
 	fs.StringVar(&opts.allowOrigin, "allow-origin", "",
 		"Access-Control-Allow-Origin に入れる値。別ポートの開発サーバからフロントを繋ぐときに指定する")
@@ -283,12 +293,18 @@ func printUsage(fs *flag.FlagSet) {
 	fmt.Fprintln(out, "pachicounter - パチンコ台のデータカウンター（コア）")
 	fmt.Fprintln(out, "\n使い方:")
 	fmt.Fprintln(out, "  pachicounter -machine <機種 ID> [オプション]")
+	fmt.Fprintln(out, "  pachicounter <サブコマンド> [引数]")
 	fmt.Fprintln(out, "\n例:")
 	fmt.Fprintln(out, "  pachicounter -machine stealth")
 	fmt.Fprintln(out, "  pachicounter -machine vb -rotation-rate 18")
 	fmt.Fprintln(out, "  pachicounter -machine stealth -source usbhid:driver=usbio2")
 	fmt.Fprintln(out, "  pachicounter -source file:session.jsonl")
-	fmt.Fprintln(out, "\nオプション:")
+	fmt.Fprintln(out, "  pachicounter correct normal_rotations +1")
+	fmt.Fprintln(out, "\n操作コマンド（詳しくは pachicounter <サブコマンド> -h）:")
+	for _, s := range opcmd.Summaries() {
+		fmt.Fprintf(out, "  %-12s %s\n", s.Name, s.Text)
+	}
+	fmt.Fprintln(out, "\nコアのオプション:")
 	fs.PrintDefaults()
 }
 

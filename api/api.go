@@ -15,6 +15,10 @@ import (
 // SchemaVersion はスナップショットの構造の版。互換性を壊す変更で上げる。
 const SchemaVersion = 1
 
+// DefaultAddr はコアの待ち受けアドレスの既定値。操作コマンドが繋ぐ先の既定値でもある。
+// 台のデータを LAN に晒すのは明示的な指定があったときだけとするため、127.0.0.1 に閉じる。
+const DefaultAddr = "127.0.0.1:18888"
+
 // エンドポイント。
 const (
 	// PathEvents は SSE でスナップショットを push する。
