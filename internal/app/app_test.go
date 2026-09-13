@@ -555,3 +555,65 @@ func TestReconnectIsRecordedOnlyFromSecondBaseline(t *testing.T) {
 		t.Errorf("記録の並び = %v, 期待は %v", kinds, want)
 	}
 }
+
+func TestRestartResetsCountersOnlyWhenReplaying(t *testing.T) {
+	// 通常時 2 回転のあと、記録の先頭に戻って初当たりを引く。やり直しが効けば
+	// 通常時回転数は 0 に戻り、効かなければ 2 のまま大当りが足される。
+	steps := func() []dummy.Step {
+		return []dummy.Step{
+			{Ports: ports()},
+			{After: 100 * time.Millisecond, Ports: ports(bitStart)},
+			{After: 40 * time.Millisecond, Ports: ports()},
+			{After: 100 * time.Millisecond, Ports: ports(bitStart)},
+			{After: 40 * time.Millisecond, Ports: ports()},
+			{After: 100 * time.Millisecond, Ports: ports(), Restart: true},
+			{After: 100 * time.Millisecond, Ports: ports(bitBonus, bitDensapo)},
+		}
+	}
+
+	cases := []struct {
+		name       string
+		replay     bool
+		wantNormal int
+	}{
+		{name: "再生ではやり直す", replay: true, wantNormal: 0},
+		// 記録しているセッションで黙ってやり直すと、ログを再集計しても同じ数字にならない。
+		{name: "記録中はやり直さない", replay: false, wantNormal: 2},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			opts := app.Options{
+				MachineID: "stealth",
+				Wiring:    testWiring(),
+				Tuning:    config.DefaultTuning(),
+				Ops:       config.Ops{MaxSecPerRotation: 40},
+				Source:    dummy.New(steps(), false),
+				Replay:    tc.replay,
+				Logger:    quietLogger(),
+			}
+			if !tc.replay {
+				st, err := store.Open(t.TempDir())
+				if err != nil {
+					t.Fatalf("保存先を開けません: %v", err)
+				}
+				opts.Store = st
+			}
+
+			core, err := app.New(opts)
+			if err != nil {
+				t.Fatalf("コアを組み立てられません: %v", err)
+			}
+			defer core.Close()
+
+			ctx, stop := context.WithCancel(context.Background())
+			defer stop()
+			go func() { _ = core.Run(ctx) }()
+
+			snap := waitFor(t, core, func(s api.Snapshot) bool { return s.Counters.Bonuses == 1 })
+			if snap.Counters.NormalRotations != tc.wantNormal {
+				t.Errorf("通常時回転数 = %d, 期待は %d", snap.Counters.NormalRotations, tc.wantNormal)
+			}
+		})
+	}
+}

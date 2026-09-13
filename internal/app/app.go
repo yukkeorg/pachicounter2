@@ -358,7 +358,18 @@ func (a *App) Run(ctx context.Context) error {
 			atRef, wallRef, haveRef = ev.At, time.Now(), true
 
 			if ev.Baseline {
-				if baselines > 0 {
+				if ev.Restart && !a.opts.Replay {
+					// 記録しているセッションで集計を黙ってやり直すと、ログを再集計しても
+					// 同じ数字にならない。やり直しは受け付けない。
+					a.log.Warn("記録しているセッションでは信号源のやり直しを受け付けません",
+						"source", a.opts.Source.Name())
+				}
+
+				switch {
+				case ev.Restart && a.opts.Replay:
+					// 記録を先頭から流し直した。再接続と違い、集計を初めからやり直す。
+					a.engine.Reset()
+				case baselines > 0:
 					// 再接続。切れている間の変化は取り逃しているので、記録にもそれを残す。
 					a.append(store.Record{Kind: store.KindDisconnect, At: ev.At, Wall: ev.Wall})
 				}

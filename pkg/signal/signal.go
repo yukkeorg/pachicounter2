@@ -84,6 +84,12 @@ type Event struct {
 	// コアを起動しただけで大当り回数が増える。詳細は
 	// docs/adr/0009-signal-baseline-and-device-loss.md を参照。
 	Baseline bool `json:"baseline,omitempty"`
+
+	// Restart は、流している記録を先頭からやり直したことを表す。Baseline と一緒に
+	// 立つ。受け手は集計を初めからやり直す。再接続（Baseline だけが立つ）とは別物で、
+	// 再接続なら集計を続けるが、やり直しで続けると同じ記録を何度も数えることになる。
+	// 記録を流す信号源だけが立てる。
+	Restart bool `json:"restart,omitempty"`
 }
 
 // Source は信号源。Events が返すチャネルにイベントが流れる。

@@ -37,7 +37,7 @@ func init() {
 
 	source.Register(source.Registration{
 		Name:    "loop",
-		Summary: "記録した生信号ログを先頭から繰り返し流す。保存先には何も書かない",
+		Summary: "記録した生信号ログを先頭から繰り返し流す。周回ごとに集計をやり直し、保存先には何も書かない",
 		Usage:   "loop:<生信号ログのパス>",
 		Kind:    source.KindReplay,
 		New: func(arg string, _ source.Env) (signal.Source, error) {
@@ -63,7 +63,8 @@ type Options struct {
 	Speed float64
 
 	// Loop が true なら流し終わったら先頭から繰り返す。フロントの見た目を
-	// 調整するときに、同じ流れを何度も見られる。
+	// 調整するときに、同じ流れを何度も見られる。2 周目以降の頭のイベントには
+	// Restart を立て、受け手に集計をやり直させる。
 	Loop bool
 }
 
@@ -116,8 +117,8 @@ func (s *Source) Events(ctx context.Context) (<-chan signal.Event, error) {
 	go func() {
 		defer close(out)
 
-		for {
-			if err := s.play(ctx, out); err != nil {
+		for lap := 0; ; lap++ {
+			if err := s.play(ctx, out, lap); err != nil {
 				return
 			}
 			if !s.opts.Loop || ctx.Err() != nil {
@@ -133,7 +134,7 @@ func (s *Source) Events(ctx context.Context) (<-chan signal.Event, error) {
 	return out, nil
 }
 
-func (s *Source) play(ctx context.Context, out chan<- signal.Event) error {
+func (s *Source) play(ctx context.Context, out chan<- signal.Event, lap int) error {
 	f, err := os.Open(s.opts.Path)
 	if err != nil {
 		return err
@@ -162,14 +163,18 @@ func (s *Source) play(ctx context.Context, out chan<- signal.Event) error {
 				}
 			}
 		}
+		lapStart := first
 		prevAt = rec.At
 		first = false
 
+		// 周の最初のイベントは基準イベントにする（信号源の約束事）。2 周目以降の
+		// それは再接続ではなく記録のやり直しなので、Restart を立てて区別する。
 		ev := signal.Event{
 			At:       rec.At,
 			Wall:     rec.Wall,
 			Ports:    *rec.Ports,
-			Baseline: rec.Kind == store.KindBaseline,
+			Baseline: lapStart || rec.Kind == store.KindBaseline,
+			Restart:  lapStart && lap > 0,
 		}
 		if ev.Wall.IsZero() {
 			ev.Wall = started.Add(rec.At)
