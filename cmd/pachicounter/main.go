@@ -250,11 +250,16 @@ func parseFlags(args []string) (options, error) {
 // 書いている。せっかく書いたものを読まずに既定の配線で解釈すると、記録と
 // 違う配線で集計してしまう。
 func applyRecordedSettings(opts *options, log *slog.Logger) error {
-	if !strings.HasPrefix(opts.sourceSpec, "file:") && !strings.HasPrefix(opts.sourceSpec, "loop:") {
+	var path string
+	switch {
+	case strings.HasPrefix(opts.sourceSpec, "file:"):
+		path = strings.TrimPrefix(opts.sourceSpec, "file:")
+	case strings.HasPrefix(opts.sourceSpec, "loop:"):
+		path = strings.TrimPrefix(opts.sourceSpec, "loop:")
+	default:
 		return nil
 	}
 
-	path := opts.sourceSpec[len("file:"):]
 	rec, err := store.ReadSessionStart(path)
 	if err != nil {
 		// 記録が読めなくても、指定されたフラグだけで動かせる。
@@ -300,14 +305,21 @@ func buildSource(opts options, log *slog.Logger) (pcsignal.Source, error) {
 	case spec == "dummy":
 		return dummy.New(nil, true), nil
 
-	case strings.HasPrefix(spec, "file:"), strings.HasPrefix(spec, "loop:"):
-		// file: と loop: はどちらも 5 文字なので、同じ位置で切れる。
-		path := spec[len("file:"):]
+	case strings.HasPrefix(spec, "file:"):
+		// 記録を 1 回だけ流す。流し終わったら、最後の状態のまま止まる。
 		return replay.New(replay.Options{
-			Path:     path,
+			Path:     strings.TrimPrefix(spec, "file:"),
 			Realtime: true,
 			Speed:    1,
-			Loop:     strings.HasPrefix(spec, "loop:"),
+		})
+
+	case strings.HasPrefix(spec, "loop:"):
+		// 記録を先頭から繰り返し流す。フロントの見た目を調整するときに使う。
+		return replay.New(replay.Options{
+			Path:     strings.TrimPrefix(spec, "loop:"),
+			Realtime: true,
+			Speed:    1,
+			Loop:     true,
 		})
 
 	default:
