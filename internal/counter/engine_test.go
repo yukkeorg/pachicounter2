@@ -8,6 +8,7 @@ import (
 	"github.com/yukkeorg/pachicounter2/internal/counter"
 	"github.com/yukkeorg/pachicounter2/pkg/machine"
 	_ "github.com/yukkeorg/pachicounter2/pkg/machine/stealth"
+	_ "github.com/yukkeorg/pachicounter2/pkg/machine/vb"
 	"github.com/yukkeorg/pachicounter2/pkg/signal"
 )
 
@@ -130,7 +131,49 @@ func TestNormalRotationsCount(t *testing.T) {
 		t.Errorf("電サポ中回転数 = %d, 期待は 0", got.DensapoRotations)
 	}
 	if got.CurrentRotations != 5 {
-		t.Errorf("現在の回転数 = %d, 期待は 5", got.CurrentRotations)
+		t.Errorf("大当り間回転数 = %d, 期待は 5", got.CurrentRotations)
+	}
+}
+
+func TestCurrentRotationsContinueAfterDensapoEnds(t *testing.T) {
+	// 大当り間回転数は電サポが終わっても 0 に戻らず、最後の大当りが終わってから
+	// 数え続ける。SR 中の 3 回転と、電サポが終わった後の通常時の 4 回転を合わせて 7。
+	for _, id := range []string{"stealth", "vb"} {
+		t.Run(id, func(t *testing.T) {
+			plugin, err := machine.New(id, "")
+			if err != nil {
+				t.Fatalf("機種プラグインを作れません: %v", err)
+			}
+			e, err := counter.New(plugin, testWiring(), config.DefaultTuning(), config.Ops{})
+			if err != nil {
+				t.Fatalf("集計エンジンを作れません: %v", err)
+			}
+
+			steps := []step{{ports: ports()}}
+			for i := 0; i < 10; i++ {
+				steps = rotate(steps)
+			}
+			// 初当たり。大当りが終わっても電サポは続く。
+			steps = append(steps, step{after: time.Second, ports: ports(bitBonus, bitDensapo)})
+			steps = append(steps, step{after: 30 * time.Second, ports: ports(bitDensapo)})
+			for i := 0; i < 3; i++ {
+				steps = rotate(steps, bitDensapo)
+			}
+			// 電サポが終わる。
+			steps = append(steps, step{after: 2 * time.Second, ports: ports()})
+			for i := 0; i < 4; i++ {
+				steps = rotate(steps)
+			}
+			feed(e, steps)
+
+			got := e.Counters()
+			if got.CurrentRotations != 7 {
+				t.Errorf("大当り間回転数 = %d, 期待は 7（電サポの終了で 0 に戻らない）", got.CurrentRotations)
+			}
+			if got.Chain != 0 {
+				t.Errorf("連荘数 = %d, 期待は 0（電サポの終了で戻る）", got.Chain)
+			}
+		})
 	}
 }
 

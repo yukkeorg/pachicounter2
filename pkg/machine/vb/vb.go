@@ -142,11 +142,14 @@ func (p *plugin) onDensapoStart(c *machine.Counters) {
 	c.FirstHits++
 }
 
+// onDensapoEnd は電サポ信号の立下り。ここで連荘が終わる。
+//
+// 大当り間回転数はここでは戻さない。最後の大当りが終わってから次の大当りまでを
+// 数える数であり、電サポの区切りでは数え直さない。
 func (p *plugin) onDensapoEnd(c *machine.Counters) {
 	p.inDensapo = false
 	p.runRotations = 0
 	c.Chain = 0
-	c.CurrentRotations = 0
 	c.BonusHistory = nil
 }
 

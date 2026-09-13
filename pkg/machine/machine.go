@@ -72,7 +72,8 @@ type BonusRecord struct {
 // その区間が通常確率かどうかは機種の仕様知識だからである。
 // 詳細は docs/adr/0004-per-machine-denominator-rule.md を参照。
 type Counters struct {
-	// CurrentRotations は最後の大当り以降の回転数。
+	// CurrentRotations は大当り間回転数。最後の大当りが終わってから数え、電サポ中も
+	// 含めて数え続ける。次の大当りが終わると 0 に戻る。
 	CurrentRotations int `json:"current_rotations"`
 
 	// NormalRotations は通常確率で抽選された回転の累計。初当たり確率の唯一の分母。
