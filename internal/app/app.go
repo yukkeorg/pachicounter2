@@ -38,8 +38,14 @@ type Options struct {
 	// Source は信号源。
 	Source signal.Source
 
-	// Store は状態の保存先。
+	// Store は状態の保存先。Replay のときは渡さない。
 	Store *store.Store
+
+	// Replay が true なら、記録を流し直して確かめるための実行として扱い、保存先には
+	// 何も書かない。続きのセッションにもつながない。再生元のログがすでに記録その
+	// ものなので、写しを作ると実機のセッションのログと混ざる。詳細は
+	// docs/adr/0006-raw-signal-log-plus-snapshot.md を参照。
+	Replay bool
 
 	// ForceNewSession が true なら、続けられるセッションがあっても新しく始める。
 	ForceNewSession bool
@@ -47,6 +53,10 @@ type Options struct {
 	// Logger はログの出力先。
 	Logger *slog.Logger
 }
+
+// ErrReplay は再生中には受け付けない操作であることを表す。再生は保存先に何も
+// 書かないので、記録を変える操作（補正、新しいセッション）は意味を持たない。
+var ErrReplay = errors.New("再生中は記録を変える操作を受け付けません")
 
 // App はコアの本体。
 type App struct {
@@ -96,7 +106,10 @@ func New(opts Options) (*App, error) {
 	if opts.Source == nil {
 		return nil, errors.New("信号源が指定されていません")
 	}
-	if opts.Store == nil {
+	switch {
+	case opts.Replay && opts.Store != nil:
+		return nil, errors.New("再生では保存先を使いません")
+	case !opts.Replay && opts.Store == nil:
 		return nil, errors.New("保存先が指定されていません")
 	}
 
@@ -118,7 +131,10 @@ func New(opts Options) (*App, error) {
 		hub:    newHub(),
 	}
 
-	if err := a.openSession(); err != nil {
+	if opts.Replay {
+		// 再生はどのセッションにも属さない。経過時間の起点だけを持つ。
+		a.sessionStart = time.Now()
+	} else if err := a.openSession(); err != nil {
 		return nil, err
 	}
 
@@ -400,7 +416,8 @@ func (a *App) handle(cmd command) error {
 }
 
 func (a *App) append(rec store.Record) {
-	if a.writer == nil {
+	// 再生のときは何も書かない。
+	if a.opts.Replay || a.writer == nil {
 		return
 	}
 	if err := a.writer.Append(rec); err != nil {
@@ -410,7 +427,7 @@ func (a *App) append(rec store.Record) {
 	}
 }
 
-// publish はスナップショットを組み立てて保存し、フロントへ配る。
+// publish はスナップショットを組み立てて保存し、フロントへ配る。再生のときは保存しない。
 func (a *App) publish() {
 	snap := a.engine.Snapshot()
 	snap.Session = api.SessionInfo{
@@ -427,12 +444,14 @@ func (a *App) publish() {
 	a.latest.snap = snap
 	a.latest.mu.Unlock()
 
-	if err := a.opts.Store.SaveSnapshot(store.Pointer{
-		Session: a.sessionID,
-		Machine: a.opts.MachineID,
-		Variant: a.opts.Variant,
-	}, snap); err != nil {
-		a.log.Error("スナップショットを保存できませんでした", "err", err)
+	if !a.opts.Replay {
+		if err := a.opts.Store.SaveSnapshot(store.Pointer{
+			Session: a.sessionID,
+			Machine: a.opts.MachineID,
+			Variant: a.opts.Variant,
+		}, snap); err != nil {
+			a.log.Error("スナップショットを保存できませんでした", "err", err)
+		}
 	}
 
 	a.hub.broadcast(snap)
@@ -450,13 +469,19 @@ func (a *App) Subscribe() (<-chan api.Snapshot, func()) {
 	return a.hub.subscribe()
 }
 
-// NewSession は新しいセッションを始める。
+// NewSession は新しいセッションを始める。再生中は ErrReplay を返す。
 func (a *App) NewSession(note string) error {
+	if a.opts.Replay {
+		return fmt.Errorf("新しいセッションを始められません: %w", ErrReplay)
+	}
 	return a.send(command{kind: cmdNewSession, note: note})
 }
 
-// Correct はカウンタを手動補正する。
+// Correct はカウンタを手動補正する。再生中は ErrReplay を返す。
 func (a *App) Correct(req api.CorrectRequest) error {
+	if a.opts.Replay {
+		return fmt.Errorf("補正できません: %w", ErrReplay)
+	}
 	return a.send(command{kind: cmdCorrect, correct: req})
 }
 

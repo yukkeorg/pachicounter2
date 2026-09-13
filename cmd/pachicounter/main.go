@@ -105,9 +105,17 @@ func run(args []string) error {
 		return err
 	}
 
-	st, err := store.Open(opts.stateDir)
-	if err != nil {
-		return err
+	// 再生は記録を流し直して確かめるための実行なので、保存先を開かず何も書かない。
+	// 実機と同じ保存先を使うと、直近のセッションの続きとみなされ、再生した信号が
+	// そのログに混ざる。詳細は docs/adr/0006-raw-signal-log-plus-snapshot.md を参照。
+	_, replaying := src.(*replay.Source)
+
+	var st *store.Store
+	if !replaying {
+		st, err = store.Open(opts.stateDir)
+		if err != nil {
+			return err
+		}
 	}
 
 	core, err := app.New(app.Options{
@@ -118,6 +126,7 @@ func run(args []string) error {
 		Ops:             opts.ops,
 		Source:          src,
 		Store:           st,
+		Replay:          replaying,
 		ForceNewSession: opts.newSession,
 		Logger:          log,
 	})
@@ -136,13 +145,17 @@ func run(args []string) error {
 		return err
 	}
 
-	spec := machineSpec(opts.machineID, opts.variant)
-	log.Info("PachiCounter",
-		"machine", spec,
+	attrs := []any{
+		"machine", machineSpec(opts.machineID, opts.variant),
 		"source", src.Name(),
 		"wiring", wiring.String(),
-		"state_dir", st.Dir(),
-		"session", core.SessionID())
+	}
+	if replaying {
+		attrs = append(attrs, "state_dir", "（再生中は記録しない）")
+	} else {
+		attrs = append(attrs, "state_dir", st.Dir(), "session", core.SessionID())
+	}
+	log.Info("PachiCounter", attrs...)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

@@ -2,6 +2,7 @@ package app_test
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"reflect"
@@ -355,5 +356,62 @@ func TestCorrectIsRecordedInLog(t *testing.T) {
 	}
 	if found.Counter != "normal_rotations" || found.Delta != 1 || found.Note != "取りこぼし" {
 		t.Errorf("記録された補正 = %+v", *found)
+	}
+}
+
+func TestReplayDoesNotPersist(t *testing.T) {
+	core, err := app.New(app.Options{
+		MachineID: "stealth",
+		Wiring:    testWiring(),
+		Tuning:    config.DefaultTuning(),
+		Ops:       config.Ops{MaxSecPerRotation: 40},
+		Source:    dummy.New(scenario(), false),
+		Replay:    true,
+		Logger:    quietLogger(),
+	})
+	if err != nil {
+		t.Fatalf("コアを組み立てられません: %v", err)
+	}
+	defer core.Close()
+
+	ctx, stop := context.WithCancel(context.Background())
+	defer stop()
+	go func() { _ = core.Run(ctx) }()
+
+	// 集計そのものは実機のときと同じに動くこと。
+	snap := waitFor(t, core, func(s api.Snapshot) bool { return s.Counters.DensapoRotations == 2 })
+	if snap.Counters.NormalRotations != 4 {
+		t.Errorf("通常時回転数 = %d, 期待は 4", snap.Counters.NormalRotations)
+	}
+
+	if got := core.SessionID(); got != "" {
+		t.Errorf("再生なのにセッション %q に属している", got)
+	}
+
+	// 補正も新しいセッションも記録を変える操作なので、何も書かない再生では断る。
+	if err := core.Correct(api.CorrectRequest{Counter: "normal_rotations", Delta: 1}); !errors.Is(err, app.ErrReplay) {
+		t.Errorf("再生中の補正のエラー = %v, 期待は ErrReplay", err)
+	}
+	if err := core.NewSession(""); !errors.Is(err, app.ErrReplay) {
+		t.Errorf("再生中の新しいセッションのエラー = %v, 期待は ErrReplay", err)
+	}
+}
+
+func TestReplayRejectsStore(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("保存先を開けません: %v", err)
+	}
+
+	// 再生に保存先を渡せてしまうと、書かないはずの再生が書ける形が残る。
+	if _, err := app.New(app.Options{
+		MachineID: "stealth",
+		Wiring:    testWiring(),
+		Source:    dummy.New(nil, false),
+		Store:     st,
+		Replay:    true,
+		Logger:    quietLogger(),
+	}); err == nil {
+		t.Fatal("再生なのに保存先を受け取った")
 	}
 }
