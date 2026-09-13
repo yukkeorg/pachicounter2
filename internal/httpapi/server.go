@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"time"
@@ -25,6 +26,9 @@ import (
 
 // heartbeatInterval は SSE の接続を維持するためにコメント行を送る間隔。
 const heartbeatInterval = 15 * time.Second
+
+// shutdownTimeout は止めるときに、処理中のリクエストが終わるのを待つ時間。
+const shutdownTimeout = 3 * time.Second
 
 // Controller はコアへの操作。
 type Controller interface {
@@ -118,16 +122,30 @@ func (s *Server) Handler() http.Handler { return s.mux }
 
 // Run はサーバを動かし、ctx が終わったら止める。
 func (s *Server) Run(ctx context.Context) error {
+	ln, err := net.Listen("tcp", s.opts.Addr)
+	if err != nil {
+		return fmt.Errorf("%s で待ち受けられません: %w", s.opts.Addr, err)
+	}
+	s.log.Info("HTTP サーバを開始しました", "addr", ln.Addr().String(), "front", s.frontLabel())
+	return s.serve(ctx, ln)
+}
+
+// serve は ln で待ち受け、ctx が終わったら止める。
+func (s *Server) serve(ctx context.Context, ln net.Listener) error {
 	srv := &http.Server{
-		Addr:              s.opts.Addr,
 		Handler:           s.mux,
 		ReadHeaderTimeout: 10 * time.Second,
+		// リクエストの context を ctx から派生させる。/events は流し続ける接続で、
+		// クライアントが切るまで終わらない。Shutdown は処理中の接続が終わるのを
+		// 待つので、ブラウザや OBS が繋いだままだと期限まで待たされ、
+		// context deadline exceeded で終わっていた。ctx から派生させておけば、
+		// ctx が終わった時点で /events は自分から抜ける。
+		BaseContext: func(net.Listener) context.Context { return ctx },
 	}
 
 	done := make(chan error, 1)
 	go func() {
-		s.log.Info("HTTP サーバを開始しました", "addr", s.opts.Addr, "front", s.frontLabel())
-		err := srv.ListenAndServe()
+		err := srv.Serve(ln)
 		if errors.Is(err, http.ErrServerClosed) {
 			err = nil
 		}
@@ -138,9 +156,14 @@ func (s *Server) Run(ctx context.Context) error {
 	case err := <-done:
 		return err
 	case <-ctx.Done():
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 		defer cancel()
-		return srv.Shutdown(shutdownCtx)
+		if err := srv.Shutdown(shutdownCtx); err != nil {
+			// 期限までに終わらないリクエストがあった。待つのをやめて接続を切る。
+			_ = srv.Close()
+			return fmt.Errorf("HTTP サーバを %s 以内に止められませんでした: %w", shutdownTimeout, err)
+		}
+		return nil
 	}
 }
 
