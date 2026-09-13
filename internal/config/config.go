@@ -103,6 +103,20 @@ func (w Wiring) String() string {
 	return s
 }
 
+// Equal は配線が同じかを返す。役割とビット位置の対応に加えて、アクティブローか
+// どうかも比べる。どちらかが違えば、同じポート値から読み取る信号が変わる。
+func (w Wiring) Equal(other Wiring) bool {
+	if w.ActiveLow != other.ActiveLow || len(w.Bits) != len(other.Bits) {
+		return false
+	}
+	for role, bit := range w.Bits {
+		if otherBit, ok := other.Bits[role]; !ok || otherBit != bit {
+			return false
+		}
+	}
+	return true
+}
+
 // Has は役割が配線されているかを返す。
 func (w Wiring) Has(role signal.Role) bool {
 	_, ok := w.Bits[role]

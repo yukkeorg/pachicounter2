@@ -188,6 +188,12 @@ func (s *Store) ReadSession(id string, fn func(Record) error) error {
 	return ReadRecords(f, fn)
 }
 
+// SessionStart はセッションのログの先頭にある session_start レコードを読む。
+// 続きから再開する前に、記録された配線を確かめるために使う。
+func (s *Store) SessionStart(id string) (Record, error) {
+	return ReadSessionStart(s.sessionPath(id))
+}
+
 // ReadRecords は JSONL を読んで 1 レコードずつ fn に渡す。
 func ReadRecords(r io.Reader, fn func(Record) error) error {
 	scanner := bufio.NewScanner(r)

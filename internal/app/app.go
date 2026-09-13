@@ -177,6 +177,20 @@ func (a *App) tryResume() (bool, error) {
 		return false, nil
 	}
 
+	// 続けることは、過去のログを今の配線で読み直すことである。配線が違うと同じ
+	// ポート値から別の信号を読み、過去の数字が別物になるので、機種が違うときと
+	// 同じく続けない。
+	start, err := a.opts.Store.SessionStart(pointer.Session)
+	if err != nil {
+		return false, err
+	}
+	recorded := config.Wiring{Bits: start.Wiring, ActiveLow: start.ActiveLow}
+	if !recorded.Equal(a.opts.Wiring) {
+		a.log.Info("記録されている配線が違うため新しいセッションを始めます",
+			"recorded", recorded.String(), "requested", a.opts.Wiring.String())
+		return false, nil
+	}
+
 	var (
 		lastAt   time.Duration
 		lastWall time.Time

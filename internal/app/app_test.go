@@ -359,6 +359,84 @@ func TestCorrectIsRecordedInLog(t *testing.T) {
 	}
 }
 
+func TestResumeWithDifferentWiringStartsNewSession(t *testing.T) {
+	cases := []struct {
+		name   string
+		wiring func() config.Wiring
+	}{
+		{
+			name: "ビット位置が違う",
+			wiring: func() config.Wiring {
+				w := testWiring()
+				w.Bits[signal.RoleStart] = bitBonus
+				w.Bits[signal.RoleBonus] = bitStart
+				return w
+			},
+		},
+		{
+			name: "アクティブローが違う",
+			wiring: func() config.Wiring {
+				w := testWiring()
+				w.ActiveLow = false
+				return w
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			st, err := store.Open(t.TempDir())
+			if err != nil {
+				t.Fatalf("保存先を開けません: %v", err)
+			}
+
+			newOpts := func(w config.Wiring, src signal.Source) app.Options {
+				return app.Options{
+					MachineID: "stealth",
+					Wiring:    w,
+					Tuning:    config.DefaultTuning(),
+					Ops:       config.Ops{MaxSecPerRotation: 40},
+					Source:    src,
+					Store:     st,
+					Logger:    quietLogger(),
+				}
+			}
+
+			// 1 回目。記録どおりの配線でシナリオを流して落とす。
+			core, err := app.New(newOpts(testWiring(), dummy.New(scenario(), false)))
+			if err != nil {
+				t.Fatalf("コアを組み立てられません: %v", err)
+			}
+
+			ctx, stop := context.WithCancel(context.Background())
+			go func() { _ = core.Run(ctx) }()
+
+			waitFor(t, core, func(s api.Snapshot) bool { return s.Counters.DensapoRotations == 2 })
+			sessionID := core.SessionID()
+
+			stop()
+			if err := core.Close(); err != nil {
+				t.Fatalf("セッションを閉じられません: %v", err)
+			}
+
+			// 2 回目。配線だけ変えて立ち上げる。前のログを今の配線で読み直すと
+			// 数字が別物になるので、続けずに新しいセッションになっていなければならない。
+			resumed, err := app.New(newOpts(tc.wiring(), dummy.New([]dummy.Step{}, false)))
+			if err != nil {
+				t.Fatalf("コアを組み立てられません: %v", err)
+			}
+			defer resumed.Close()
+
+			if got := resumed.SessionID(); got == sessionID {
+				t.Errorf("配線が違うのに前のセッション %q を続けている", got)
+			}
+			if got := resumed.Snapshot().Counters; !reflect.DeepEqual(got, machine.Counters{}) {
+				t.Errorf("新しいセッションのカウンタ = %+v, 期待はすべて 0", got)
+			}
+		})
+	}
+}
+
 func TestReplayDoesNotPersist(t *testing.T) {
 	core, err := app.New(app.Options{
 		MachineID: "stealth",
