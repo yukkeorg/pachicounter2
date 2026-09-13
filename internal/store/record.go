@@ -68,8 +68,11 @@ type Record struct {
 	// 配線かどうか。
 	ActiveLow bool `json:"active_low,omitempty"`
 
-	// Counter と Delta と Note は KindCorrect での補正内容。
+	// Counter と Delta は KindCorrect での補正内容。
 	Counter string `json:"counter,omitempty"`
 	Delta   int    `json:"delta,omitempty"`
-	Note    string `json:"note,omitempty"`
+
+	// Note は人が書いた覚書。KindCorrect では補正の理由、KindSessionStart では
+	// セッションを始めた理由が入る。
+	Note string `json:"note,omitempty"`
 }

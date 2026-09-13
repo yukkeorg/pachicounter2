@@ -296,6 +296,15 @@ func TestNewSessionResetsCounters(t *testing.T) {
 		t.Error("セッション識別子が変わっていない")
 	}
 
+	// 始めた理由がログの 1 行目に残ること。API は覚書を受け取るのに、コアが捨てていた。
+	start, err := st.SessionStart(core.SessionID())
+	if err != nil {
+		t.Fatalf("新しいセッションの 1 行目を読めません: %v", err)
+	}
+	if start.Note != "テスト" {
+		t.Errorf("session_start の覚書 = %q, 期待は テスト", start.Note)
+	}
+
 	snap := core.Snapshot()
 	if !reflect.DeepEqual(snap.Counters, machine.Counters{}) {
 		t.Errorf("新しいセッションのカウンタ = %+v, 期待はすべて 0", snap.Counters)

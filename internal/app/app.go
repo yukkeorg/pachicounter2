@@ -152,7 +152,7 @@ func (a *App) openSession() error {
 			return nil
 		}
 	}
-	return a.startSession()
+	return a.startSession("")
 }
 
 // tryResume は直近のセッションを再集計して続ける。
@@ -269,8 +269,9 @@ func (a *App) tryResume() (bool, error) {
 	return true, nil
 }
 
-// startSession は新しいセッションを始める。
-func (a *App) startSession() error {
+// startSession は新しいセッションを始める。note はセッションを始めた理由で、
+// ログの 1 行目に残る。
+func (a *App) startSession(note string) error {
 	now := time.Now()
 	id := store.NewSessionID(now, a.opts.MachineID)
 
@@ -297,6 +298,7 @@ func (a *App) startSession() error {
 		Variant:   a.opts.Variant,
 		Wiring:    a.opts.Wiring.Bits,
 		ActiveLow: a.opts.Wiring.ActiveLow,
+		Note:      note,
 	}
 	if err := a.writer.Append(rec); err != nil {
 		return err
@@ -422,7 +424,7 @@ func (a *App) handle(cmd command) error {
 		if err := a.writer.Close(); err != nil {
 			return err
 		}
-		if err := a.startSession(); err != nil {
+		if err := a.startSession(cmd.note); err != nil {
 			return err
 		}
 		a.publish()
