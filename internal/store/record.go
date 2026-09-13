@@ -28,6 +28,10 @@ const (
 	// KindDisconnect は信号源との接続が切れたこと。切れている間の変化は
 	// 原理的に取り逃しているため、再接続後は新しい基準イベントから始まる。
 	KindDisconnect Kind = "disconnect"
+
+	// KindResume はコアを再起動してセッションを続けたこと。止まっていた間の変化は
+	// 記録されていないので、続きは次の基準イベントから読み直す。
+	KindResume Kind = "resume"
 )
 
 // Record は生信号ログの 1 行。

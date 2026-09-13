@@ -243,6 +243,18 @@ func TestResumeRebuildsFromLog(t *testing.T) {
 		t.Errorf("復帰後の状態 = %+v, 期待は %+v（プラグインの内部状態がログから戻っていない）",
 			after.State, before.State)
 	}
+
+	// 止まっていた間の空白が、ログだけを見ても分かること。
+	var last store.Record
+	if err := st.ReadSession(sessionID, func(rec store.Record) error {
+		last = rec
+		return nil
+	}); err != nil {
+		t.Fatalf("生信号ログを読めません: %v", err)
+	}
+	if last.Kind != store.KindResume {
+		t.Errorf("再開した直後の最後の記録 = %q, 期待は %q", last.Kind, store.KindResume)
+	}
 }
 
 func TestNewSessionResetsCounters(t *testing.T) {

@@ -220,6 +220,10 @@ func (a *App) tryResume() (bool, error) {
 				a.engine.Apply(signal.Event{At: rec.At, Wall: rec.Wall, Ports: *rec.Ports})
 			}
 
+		case store.KindDisconnect, store.KindResume:
+			// 切れていた間や止まっていた間の変化は記録に無い。次の基準イベントで
+			// 状態を取り直すので、ここでは何もしない。
+
 		case store.KindCorrect:
 			if err := a.engine.Correct(rec.Counter, rec.Delta); err != nil {
 				// 記録済みの補正が今の規則で通らないことはありうる。止めるほどでは
@@ -252,6 +256,10 @@ func (a *App) tryResume() (bool, error) {
 			a.atOffset += gap
 		}
 	}
+
+	// 止まっていた間の信号は記録されていない。ログだけを見てもそれが分かるように
+	// 印を残す。詳細は docs/adr/0009-signal-baseline-and-device-loss.md を参照。
+	a.append(store.Record{Kind: store.KindResume, At: a.atOffset, Wall: time.Now()})
 
 	a.log.Info("セッションを続けます",
 		"session", a.sessionID,
