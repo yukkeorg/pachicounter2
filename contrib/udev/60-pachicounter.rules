@@ -4,13 +4,19 @@
 # 読めない。カーネルの HID ドライバを引き剥がす必要はないので（libusb ではなく
 # hidraw を直接使う）、権限を与えるだけで足りる。
 #
-#   sudo cp contrib/udev/99-pachicounter.rules /etc/udev/rules.d/
+#   sudo cp contrib/udev/60-pachicounter.rules /etc/udev/rules.d/
 #   sudo udevadm control --reload-rules
 #   sudo udevadm trigger
 #
 # TAG+="uaccess" は、そのマシンに実際にログインしているユーザへアクセス権を渡す
 # systemd-logind の仕組みである。デーモンとして別ユーザで動かす場合は、この行の
 # 代わりに GROUP と MODE を使う（下のコメントを参照）。
+#
+# ファイル名の番号は 73 より小さくしなければならない。udev はルールファイルを
+# ディレクトリをまたいで名前順に処理し、ACL を付けるのは systemd の
+# 73-seat-late.rules が、その時点で uaccess タグの付いているデバイスに対してだけ
+# である。99- のように後ろの番号でタグを付けると、タグは付くのに ACL は付かず、
+# 権限が無いままになる。
 
 # km2net USB-IO 2.0
 SUBSYSTEM=="hidraw", ATTRS{idVendor}=="1352", ATTRS{idProduct}=="0120", TAG+="uaccess"

@@ -73,7 +73,7 @@ $ go build -o pachicounter ./cmd/pachicounter
 Linux ではデバイスを読む権限が必要です。
 
 ```
-$ sudo cp contrib/udev/99-pachicounter.rules /etc/udev/rules.d/
+$ sudo cp contrib/udev/60-pachicounter.rules /etc/udev/rules.d/
 $ sudo udevadm control --reload-rules && sudo udevadm trigger
 ```
 
