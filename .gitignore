@@ -5,6 +5,8 @@ PachiCounter/
 /pachicounter
 /pachicounter-*
 /pachicounter.exe
+/dist/
+/coverage.out
 
 # 手元の状態。生信号ログのうち、テストの fixture として置くものは
 # testdata/ に入れるのでコミットする（docs/adr/0010 を参照）。
