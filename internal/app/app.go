@@ -332,11 +332,15 @@ func (a *App) Run(ctx context.Context) error {
 	defer watch.Stop()
 
 	var (
-		atRef      time.Duration
-		wallRef    = time.Now()
-		haveRef    bool
-		wasOnline  = a.opts.Source.Connected()
-		everOnline = wasOnline
+		atRef     time.Duration
+		wallRef   = time.Now()
+		haveRef   bool
+		wasOnline = a.opts.Source.Connected()
+
+		// baselines はこの Run で受け取った基準イベントの数。2 回目以降は再接続を
+		// 意味する。開始時の Connected() で判断すると、常に true を返す信号源や、
+		// 読み始める前に繋がった信号源で、最初の基準イベントを再接続と取り違える。
+		baselines int
 	)
 
 	for {
@@ -354,15 +358,15 @@ func (a *App) Run(ctx context.Context) error {
 			atRef, wallRef, haveRef = ev.At, time.Now(), true
 
 			if ev.Baseline {
-				if everOnline {
-					// 2 回目以降の基準イベントは再接続を意味する。切れている間の
-					// 変化は取り逃しているので、記録にもそれを残す。
+				if baselines > 0 {
+					// 再接続。切れている間の変化は取り逃しているので、記録にもそれを残す。
 					a.append(store.Record{Kind: store.KindDisconnect, At: ev.At, Wall: ev.Wall})
 				}
+				baselines++
+
 				a.engine.Baseline(ev)
 				a.append(store.Record{Kind: store.KindBaseline, At: ev.At, Wall: ev.Wall, Ports: &ev.Ports})
 				a.publish()
-				everOnline = true
 				continue
 			}
 

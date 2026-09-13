@@ -493,3 +493,65 @@ func TestReplayRejectsStore(t *testing.T) {
 		t.Fatal("再生なのに保存先を受け取った")
 	}
 }
+
+func TestReconnectIsRecordedOnlyFromSecondBaseline(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("保存先を開けません: %v", err)
+	}
+
+	// dummy は Connected() が常に true を返す。開始時の接続状態で再接続を判断して
+	// いたときは、最初の基準イベントを再接続と取り違えてログに disconnect を書いていた。
+	steps := []dummy.Step{
+		{Ports: ports()},
+		{After: 100 * time.Millisecond, Ports: ports(bitStart)},
+		{After: 40 * time.Millisecond, Ports: ports()},
+		{After: time.Second, Ports: ports(), Baseline: true}, // 抜き差しして繋がり直した
+		{After: 100 * time.Millisecond, Ports: ports(bitStart)},
+	}
+
+	core, err := app.New(app.Options{
+		MachineID: "stealth",
+		Wiring:    testWiring(),
+		Tuning:    config.DefaultTuning(),
+		Ops:       config.Ops{MaxSecPerRotation: 40},
+		Source:    dummy.New(steps, false),
+		Store:     st,
+		Logger:    quietLogger(),
+	})
+	if err != nil {
+		t.Fatalf("コアを組み立てられません: %v", err)
+	}
+
+	ctx, stop := context.WithCancel(context.Background())
+	go func() { _ = core.Run(ctx) }()
+
+	waitFor(t, core, func(s api.Snapshot) bool { return s.Counters.NormalRotations == 2 })
+	sessionID := core.SessionID()
+
+	stop()
+	if err := core.Close(); err != nil {
+		t.Fatalf("セッションを閉じられません: %v", err)
+	}
+
+	var kinds []store.Kind
+	if err := st.ReadSession(sessionID, func(rec store.Record) error {
+		kinds = append(kinds, rec.Kind)
+		return nil
+	}); err != nil {
+		t.Fatalf("生信号ログを読めません: %v", err)
+	}
+
+	want := []store.Kind{
+		store.KindSessionStart,
+		store.KindBaseline,
+		store.KindSignal,
+		store.KindSignal,
+		store.KindDisconnect, // 2 回目の基準イベントの前にだけ付く
+		store.KindBaseline,
+		store.KindSignal,
+	}
+	if !reflect.DeepEqual(kinds, want) {
+		t.Errorf("記録の並び = %v, 期待は %v", kinds, want)
+	}
+}

@@ -18,6 +18,10 @@ type Step struct {
 
 	// Ports は変化後のポート値。
 	Ports signal.Ports
+
+	// Baseline が true なら基準イベントとして流す。再接続を試すときに使う。
+	// 最初のイベントは指定が無くても基準イベントになる。
+	Baseline bool
 }
 
 // Source は与えられた信号列をそのまま流す信号源。
@@ -66,7 +70,7 @@ func (s *Source) Events(ctx context.Context) (<-chan signal.Event, error) {
 				At:       elapsed,
 				Wall:     started.Add(elapsed),
 				Ports:    step.Ports,
-				Baseline: i == 0,
+				Baseline: i == 0 || step.Baseline,
 			}
 
 			select {
