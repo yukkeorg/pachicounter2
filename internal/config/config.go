@@ -176,10 +176,8 @@ func DefaultTuning() Tuning {
 }
 
 // Ops は運用パラメータ。台にも機種にも属さない、ソフトの動かし方の値。
+// ポーリング間隔のように特定の信号源だけが使う値は、ここではなくその信号源の設定に置く。
 type Ops struct {
-	// PollInterval はポーリング間隔。
-	PollInterval time.Duration
-
 	// Debounce は同一ビットの再エッジを無視する時間。接点のバウンスで
 	// 1 回転が 2 回数えられるのを防ぐ。0 なら無効。
 	Debounce time.Duration
@@ -192,7 +190,6 @@ type Ops struct {
 // DefaultOps は既定の運用パラメータを返す。
 func DefaultOps() Ops {
 	return Ops{
-		PollInterval:      5 * time.Millisecond,
 		Debounce:          8 * time.Millisecond,
 		MaxSecPerRotation: 40,
 	}

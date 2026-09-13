@@ -39,7 +39,7 @@ PachiCounter
   - [km2net USB-IO 2.0](http://km2net.com/usb-io2.0/index.shtml)（[秋月電子の互換品](http://akizukidenshi.com/catalog/g/gM-05131/)も可）
 - Linux または Windows
   - Linux は `/dev/hidraw` を直接読みます（udev ルールが必要）
-  - Windows 向けのハードウェア層は未実装です。ダミーと記録再生は動きます
+  - Windows 向けのハードウェア層は未実装です。記録再生は動きます
 
 
 配線
@@ -89,7 +89,7 @@ $ CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o pachicounter-arm64 ./cmd/pac
 
 ```
 $ ./pachicounter -list-machines          # 対応している機種を見る
-$ ./pachicounter -list-devices           # デバイスの検出結果を見る
+$ ./pachicounter -list-sources           # 信号源とデバイスの検出結果を見る
 $ ./pachicounter -machine stealth        # 集計を始める
 ```
 
@@ -105,11 +105,10 @@ $ ./pachicounter -machine vb -rotation-rate 18 -densapo-base 0.85
 | フラグ | 意味 |
 |---|---|
 | `-machine` | 集計する機種の ID |
-| `-source` | 信号源: `usbhid`（既定）/ `dummy` / `file:<ログ>` / `loop:<ログ>` |
+| `-source` | 信号源: `usbhid`（既定）/ `file:<ログ>` / `loop:<ログ>`。usbhid は `usbhid:driver=<ドライバ名>,interval=<ポーリング間隔>` の形で設定を渡せる（`-list-sources` で一覧） |
 | `-wire` | 配線。`start=0,bonus=1,densapo=2` の形 |
 | `-rotation-rate` | 回転率（貸玉 250 個あたりの回転数）。台の調整値 |
 | `-densapo-base` | 電サポ中の玉持ち率。台の調整値 |
-| `-poll-interval` | ポーリング間隔（既定 5ms） |
 | `-debounce` | 接点バウンスを無視する時間（既定 8ms） |
 | `-listen` | 待ち受けアドレス（既定 `127.0.0.1:18888`） |
 | `-front-dir` | 外部のフロントを使う（埋め込みより優先） |

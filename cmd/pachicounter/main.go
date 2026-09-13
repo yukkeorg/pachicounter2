@@ -6,10 +6,12 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -19,36 +21,52 @@ import (
 
 	"github.com/yukkeorg/pachicounter2/internal/app"
 	"github.com/yukkeorg/pachicounter2/internal/config"
-	"github.com/yukkeorg/pachicounter2/internal/hidgpio"
 	"github.com/yukkeorg/pachicounter2/internal/httpapi"
-	"github.com/yukkeorg/pachicounter2/internal/source/dummy"
-	"github.com/yukkeorg/pachicounter2/internal/source/replay"
-	"github.com/yukkeorg/pachicounter2/internal/source/usbhid"
+	"github.com/yukkeorg/pachicounter2/internal/source"
 	"github.com/yukkeorg/pachicounter2/internal/store"
 	"github.com/yukkeorg/pachicounter2/pkg/machine"
 	pcsignal "github.com/yukkeorg/pachicounter2/pkg/signal"
 
-	// 機種プラグインとデバイスドライバは動的ロードせず、ここでの import によって
-	// バイナリに含める。詳細は
+	// 機種プラグイン・信号源・デバイスドライバは動的ロードせず、ここでの import に
+	// よってバイナリに含める。詳細は
 	// docs/adr/0003-compile-time-plugin-registration.md を参照。
 	_ "github.com/yukkeorg/pachicounter2/internal/hidgpio/usbio2"
+	_ "github.com/yukkeorg/pachicounter2/internal/source/replay"
+	_ "github.com/yukkeorg/pachicounter2/internal/source/usbhid"
 	_ "github.com/yukkeorg/pachicounter2/pkg/machine/stealth"
 	_ "github.com/yukkeorg/pachicounter2/pkg/machine/vb"
 )
 
 func main() {
-	if err := run(os.Args[1:]); err != nil {
+	err := run(os.Args[1:])
+
+	var usage *usageError
+	switch {
+	case err == nil, errors.Is(err, flag.ErrHelp):
+		// -h で使い方を出したのはエラーではない。
+	case errors.As(err, &usage):
+		// エラーと使い方は parseFlags が出している。
+		os.Exit(2)
+	default:
 		fmt.Fprintln(os.Stderr, "エラー: "+err.Error())
 		os.Exit(1)
 	}
 }
+
+// usageError はオプションの誤り。parseFlags がエラーと使い方を出したあとに返す。
+// 終了コードは flag パッケージの ExitOnError と同じ 2 にする。
+type usageError struct {
+	err error
+}
+
+func (e *usageError) Error() string { return e.err.Error() }
+func (e *usageError) Unwrap() error { return e.err }
 
 type options struct {
 	machineID string
 	variant   string
 
 	sourceSpec string
-	driver     string
 
 	wireSpec  string
 	activeLow bool
@@ -65,7 +83,7 @@ type options struct {
 
 	logLevel     string
 	listMachines bool
-	listDevices  bool
+	listSources  bool
 
 	// setFlags には明示的に指定されたフラグ名が入る。再生時に、指定の無かった
 	// 分だけログの記録で埋めるために使う。
@@ -83,12 +101,15 @@ func run(args []string) error {
 	if opts.listMachines {
 		return printMachines()
 	}
-	if opts.listDevices {
-		return printDevices()
+	if opts.listSources {
+		return printSources()
 	}
-	if err := applyRecordedSettings(&opts, log); err != nil {
+
+	src, reg, err := source.Open(opts.sourceSpec, source.Env{Logger: log})
+	if err != nil {
 		return err
 	}
+	applyRecordedSettings(&opts, src, log)
 
 	if opts.machineID == "" {
 		return fmt.Errorf("機種を指定してください（例: pachicounter -machine stealth）。-list-machines で一覧が出ます")
@@ -100,15 +121,10 @@ func run(args []string) error {
 	}
 	wiring.ActiveLow = opts.activeLow
 
-	src, err := buildSource(opts, log)
-	if err != nil {
-		return err
-	}
-
 	// 再生は記録を流し直して確かめるための実行なので、保存先を開かず何も書かない。
 	// 実機と同じ保存先を使うと、直近のセッションの続きとみなされ、再生した信号が
 	// そのログに混ざる。詳細は docs/adr/0006-raw-signal-log-plus-snapshot.md を参照。
-	_, replaying := src.(*replay.Source)
+	replaying := reg.Kind == source.KindReplay
 
 	var st *store.Store
 	if !replaying {
@@ -188,13 +204,16 @@ func parseFlags(args []string) (options, error) {
 	defaultWiring := config.DefaultWiring()
 
 	fs := flag.NewFlagSet("pachicounter", flag.ContinueOnError)
+	// flag パッケージは誤りを見つけると、英語のエラーと使い方を自分で出す。エラーと
+	// 使い方はここで順番を決めて 1 回だけ出すので、Parse の間は黙らせる。
+	fs.SetOutput(io.Discard)
+	fs.Usage = func() {}
+
 	fs.StringVar(&opts.machineID, "machine", "", "集計する機種の ID（-list-machines で一覧）")
 	fs.StringVar(&opts.variant, "variant", "", "機種のバリアント（スペック違いがある機種のみ）")
 
 	fs.StringVar(&opts.sourceSpec, "source", "usbhid",
-		"信号源: usbhid | dummy | file:<生信号ログのパス> | loop:<生信号ログのパス>")
-	fs.StringVar(&opts.driver, "driver", "",
-		"USB-HID GPIO デバイスのドライバ名（空なら自動検出。-list-devices で一覧）")
+		"信号源。名前 または 名前:引数 で指定する（-list-sources で一覧と書き方）")
 
 	fs.StringVar(&opts.wireSpec, "wire", defaultWiring.Spec(),
 		"配線: 役割=ビット位置 をカンマ区切りで指定する")
@@ -208,8 +227,6 @@ func parseFlags(args []string) (options, error) {
 	fs.Float64Var(&opts.tuning.DensapoBase, "densapo-base", defaultTuning.DensapoBase,
 		"電サポ中の玉持ち率（1 なら玉が減らない）。台の調整値")
 
-	fs.DurationVar(&opts.ops.PollInterval, "poll-interval", defaultOps.PollInterval,
-		"信号源のポーリング間隔")
 	fs.DurationVar(&opts.ops.Debounce, "debounce", defaultOps.Debounce,
 		"同一ビットの再エッジを無視する時間（0 で無効）")
 	fs.Float64Var(&opts.ops.MaxSecPerRotation, "max-sec-per-rotation", defaultOps.MaxSecPerRotation,
@@ -229,26 +246,18 @@ func parseFlags(args []string) (options, error) {
 
 	fs.StringVar(&opts.logLevel, "log-level", "info", "ログの詳しさ: debug | info | warn | error")
 	fs.BoolVar(&opts.listMachines, "list-machines", false, "登録されている機種を一覧する")
-	fs.BoolVar(&opts.listDevices, "list-devices", false, "登録されているデバイスドライバと検出結果を一覧する")
-
-	fs.Usage = func() {
-		out := fs.Output()
-		fmt.Fprintln(out, "pachicounter - パチンコ台のデータカウンター（コア）")
-		fmt.Fprintln(out, "\n使い方:")
-		fmt.Fprintln(out, "  pachicounter -machine <機種 ID> [オプション]")
-		fmt.Fprintln(out, "\n例:")
-		fmt.Fprintln(out, "  pachicounter -machine stealth")
-		fmt.Fprintln(out, "  pachicounter -machine vb -rotation-rate 18")
-		fmt.Fprintln(out, "  pachicounter -machine stealth -source file:session.jsonl")
-		fmt.Fprintln(out, "\nオプション:")
-		fs.PrintDefaults()
-	}
+	fs.BoolVar(&opts.listSources, "list-sources", false, "登録されている信号源と、その書き方を一覧する")
 
 	if err := fs.Parse(args); err != nil {
+		fs.SetOutput(os.Stderr)
 		if errors.Is(err, flag.ErrHelp) {
-			return opts, nil
+			printUsage(fs)
+			return opts, err
 		}
-		return opts, err
+		fmt.Fprintln(os.Stderr, "エラー: "+describeFlagError(err))
+		fmt.Fprintln(os.Stderr)
+		printUsage(fs)
+		return opts, &usageError{err: err}
 	}
 
 	opts.setFlags = map[string]bool{}
@@ -256,28 +265,47 @@ func parseFlags(args []string) (options, error) {
 	return opts, nil
 }
 
-// applyRecordedSettings は生信号ログを再生するとき、明示指定の無かった設定を
+// printUsage は使い方を書く。
+func printUsage(fs *flag.FlagSet) {
+	out := fs.Output()
+	fmt.Fprintln(out, "pachicounter - パチンコ台のデータカウンター（コア）")
+	fmt.Fprintln(out, "\n使い方:")
+	fmt.Fprintln(out, "  pachicounter -machine <機種 ID> [オプション]")
+	fmt.Fprintln(out, "\n例:")
+	fmt.Fprintln(out, "  pachicounter -machine stealth")
+	fmt.Fprintln(out, "  pachicounter -machine vb -rotation-rate 18")
+	fmt.Fprintln(out, "  pachicounter -machine stealth -source usbhid:driver=usbio2")
+	fmt.Fprintln(out, "  pachicounter -source file:session.jsonl")
+	fmt.Fprintln(out, "\nオプション:")
+	fs.PrintDefaults()
+}
+
+// describeFlagError は flag パッケージのエラーを表示用の文にする。定義されていない
+// オプションだけは、いちばん起きやすい誤りなので日本語にする。
+func describeFlagError(err error) string {
+	if name, ok := strings.CutPrefix(err.Error(), "flag provided but not defined: "); ok {
+		return "不明なオプションです: " + name
+	}
+	return err.Error()
+}
+
+// applyRecordedSettings は記録を流す信号源のとき、明示指定の無かった設定を
 // 記録された内容で埋める。
 //
 // 当時の配線が分からないとポート値を解釈できないため、配線をログの 1 行目に
 // 書いている。せっかく書いたものを読まずに既定の配線で解釈すると、記録と
 // 違う配線で集計してしまう。
-func applyRecordedSettings(opts *options, log *slog.Logger) error {
-	var path string
-	switch {
-	case strings.HasPrefix(opts.sourceSpec, "file:"):
-		path = strings.TrimPrefix(opts.sourceSpec, "file:")
-	case strings.HasPrefix(opts.sourceSpec, "loop:"):
-		path = strings.TrimPrefix(opts.sourceSpec, "loop:")
-	default:
-		return nil
+func applyRecordedSettings(opts *options, src pcsignal.Source, log *slog.Logger) {
+	recording, ok := src.(source.Recording)
+	if !ok {
+		return
 	}
 
-	rec, err := store.ReadSessionStart(path)
+	rec, err := recording.Recorded()
 	if err != nil {
 		// 記録が読めなくても、指定されたフラグだけで動かせる。
 		log.Warn("記録された設定を読めませんでした。指定された設定で再生します", "err", err)
-		return nil
+		return
 	}
 
 	if !opts.setFlags["machine"] && rec.Machine != "" {
@@ -292,51 +320,12 @@ func applyRecordedSettings(opts *options, log *slog.Logger) error {
 			"recorded", rec.Machine, "requested", opts.machineID)
 	}
 
-	if !opts.setFlags["wire"] && len(rec.Wiring) > 0 {
-		wiring := config.Wiring{Bits: rec.Wiring, ActiveLow: rec.ActiveLow}
-		opts.wireSpec = wiring.Spec()
+	if !opts.setFlags["wire"] && len(rec.Wiring.Bits) > 0 {
+		opts.wireSpec = rec.Wiring.Spec()
 		if !opts.setFlags["active-low"] {
-			opts.activeLow = rec.ActiveLow
+			opts.activeLow = rec.Wiring.ActiveLow
 		}
-		log.Info("記録された配線を使います", "wiring", wiring.String())
-	}
-	return nil
-}
-
-// buildSource は -source の指定から信号源を組み立てる。
-func buildSource(opts options, log *slog.Logger) (pcsignal.Source, error) {
-	spec := opts.sourceSpec
-
-	switch {
-	case spec == "usbhid":
-		return usbhid.New(usbhid.Options{
-			Driver:   opts.driver,
-			Interval: opts.ops.PollInterval,
-			Logger:   log,
-		}), nil
-
-	case spec == "dummy":
-		return dummy.New(nil, true), nil
-
-	case strings.HasPrefix(spec, "file:"):
-		// 記録を 1 回だけ流す。流し終わったら、最後の状態のまま止まる。
-		return replay.New(replay.Options{
-			Path:     strings.TrimPrefix(spec, "file:"),
-			Realtime: true,
-			Speed:    1,
-		})
-
-	case strings.HasPrefix(spec, "loop:"):
-		// 記録を先頭から繰り返し流す。フロントの見た目を調整するときに使う。
-		return replay.New(replay.Options{
-			Path:     strings.TrimPrefix(spec, "loop:"),
-			Realtime: true,
-			Speed:    1,
-			Loop:     true,
-		})
-
-	default:
-		return nil, fmt.Errorf("信号源 %q は指定できません（usbhid | dummy | file:<パス> | loop:<パス>）", spec)
+		log.Info("記録された配線を使います", "wiring", rec.Wiring.String())
 	}
 }
 
@@ -358,29 +347,29 @@ func printMachines() error {
 	return nil
 }
 
-func printDevices() error {
-	names := hidgpio.Names()
-	if len(names) == 0 {
-		fmt.Println("登録されているデバイスドライバがありません。")
+func printSources() error {
+	all := source.All()
+	if len(all) == 0 {
+		fmt.Println("登録されている信号源がありません。")
 		return nil
 	}
 
-	fmt.Println("登録されているデバイスドライバ:")
-	for _, name := range names {
-		driver, _ := hidgpio.Lookup(name)
-		fmt.Printf("  %-10s %s（入力 %d ビット）\n", driver.Name, driver.DisplayName, driver.NumBits)
-	}
+	// 名前の列（"  " + 10 桁 + " "）に揃えて字下げする。
+	const indent = "             "
 
-	fmt.Println("\n検出結果:")
-	found, err := hidgpio.Detect("")
-	switch {
-	case errors.Is(err, hidgpio.ErrNoDevice):
-		fmt.Println("  対応するデバイスは見つかりませんでした。")
-	case err != nil:
-		fmt.Printf("  検出に失敗しました: %v\n", err)
-	default:
-		fmt.Printf("  %s を %s で検出しました（VID 0x%04x / PID 0x%04x）\n",
-			found.Driver.DisplayName, found.Info.Path, found.Info.VendorID, found.Info.ProductID)
+	fmt.Println("登録されている信号源:")
+	for _, reg := range all {
+		fmt.Printf("  %-10s %s\n", reg.Name, reg.Summary)
+		fmt.Printf("%s書き方: %s\n", indent, reg.Usage)
+		if reg.PrintDetails == nil {
+			continue
+		}
+
+		var details bytes.Buffer
+		reg.PrintDetails(&details)
+		for _, line := range strings.Split(strings.TrimRight(details.String(), "\n"), "\n") {
+			fmt.Printf("%s%s\n", indent, line)
+		}
 	}
 	return nil
 }

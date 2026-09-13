@@ -18,7 +18,7 @@ PLATFORMS := linux-amd64 linux-arm64 linux-arm windows-amd64
 # Raspberry Pi の 32bit OS 向け。GOARCH=arm のときだけ効く。
 GOARM ?= 7
 
-# go run に渡す引数。例: make run ARGS='-machine stealth -source dummy'
+# go run に渡す引数。例: make run ARGS='-source loop:session.jsonl'
 ARGS ?=
 
 export CGO_ENABLED := 0
@@ -37,7 +37,7 @@ install: ## $(GOBIN) へ入れる
 	$(GO) install $(GOFLAGS) -trimpath $(CMD)
 
 .PHONY: run
-run: ## ビルドせずに動かす（例: make run ARGS='-machine stealth -source dummy'）
+run: ## ビルドせずに動かす（例: make run ARGS='-source loop:session.jsonl'）
 	$(GO) run $(CMD) $(ARGS)
 
 .PHONY: dist

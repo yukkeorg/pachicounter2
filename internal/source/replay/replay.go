@@ -12,9 +12,43 @@ import (
 	"os"
 	"time"
 
+	"github.com/yukkeorg/pachicounter2/internal/config"
+	"github.com/yukkeorg/pachicounter2/internal/source"
 	"github.com/yukkeorg/pachicounter2/internal/store"
 	"github.com/yukkeorg/pachicounter2/pkg/signal"
 )
+
+// file と loop は同じ実装を使うが、1 回流して止まるか繰り返すかが違うので、
+// 別々に登録する。
+func init() {
+	source.Register(source.Registration{
+		Name:    "file",
+		Summary: "記録した生信号ログを 1 回流す。保存先には何も書かない",
+		Usage:   "file:<生信号ログのパス>",
+		Kind:    source.KindReplay,
+		New: func(arg string, _ source.Env) (signal.Source, error) {
+			src, err := New(Options{Path: arg, Realtime: true, Speed: 1})
+			if err != nil {
+				return nil, err
+			}
+			return src, nil
+		},
+	})
+
+	source.Register(source.Registration{
+		Name:    "loop",
+		Summary: "記録した生信号ログを先頭から繰り返し流す。保存先には何も書かない",
+		Usage:   "loop:<生信号ログのパス>",
+		Kind:    source.KindReplay,
+		New: func(arg string, _ source.Env) (signal.Source, error) {
+			src, err := New(Options{Path: arg, Realtime: true, Speed: 1, Loop: true})
+			if err != nil {
+				return nil, err
+			}
+			return src, nil
+		},
+	})
+}
 
 // Options は再生の設定。
 type Options struct {
@@ -57,6 +91,19 @@ func (s *Source) Name() string { return "再生: " + s.opts.Path }
 
 // Connected は常に true を返す。
 func (s *Source) Connected() bool { return true }
+
+// Recorded は記録したときの機種と配線を、ログの 1 行目の session_start から読む。
+func (s *Source) Recorded() (source.Recorded, error) {
+	rec, err := store.ReadSessionStart(s.opts.Path)
+	if err != nil {
+		return source.Recorded{}, err
+	}
+	return source.Recorded{
+		Machine: rec.Machine,
+		Variant: rec.Variant,
+		Wiring:  config.Wiring{Bits: rec.Wiring, ActiveLow: rec.ActiveLow},
+	}, nil
+}
 
 // Events はログを読んでイベントを流す。
 //
