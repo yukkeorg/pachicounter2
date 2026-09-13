@@ -91,7 +91,7 @@ type options struct {
 }
 
 func run(args []string) error {
-	opts, err := parseFlags(args)
+	opts, err := parseFlags(args, os.Stderr)
 	if err != nil {
 		return err
 	}
@@ -196,7 +196,7 @@ func run(args []string) error {
 	return err
 }
 
-func parseFlags(args []string) (options, error) {
+func parseFlags(args []string, stderr io.Writer) (options, error) {
 	var opts options
 
 	defaultTuning := config.DefaultTuning()
@@ -249,13 +249,25 @@ func parseFlags(args []string) (options, error) {
 	fs.BoolVar(&opts.listSources, "list-sources", false, "登録されている信号源と、その書き方を一覧する")
 
 	if err := fs.Parse(args); err != nil {
-		fs.SetOutput(os.Stderr)
+		fs.SetOutput(stderr)
 		if errors.Is(err, flag.ErrHelp) {
 			printUsage(fs)
 			return opts, err
 		}
-		fmt.Fprintln(os.Stderr, "エラー: "+describeFlagError(err))
-		fmt.Fprintln(os.Stderr)
+		fmt.Fprintln(stderr, "エラー: "+describeFlagError(err))
+		fmt.Fprintln(stderr)
+		printUsage(fs)
+		return opts, &usageError{err: err}
+	}
+
+	// 位置引数は受け付けない。黙って無視すると、操作コマンドのつもりの打ち間違い
+	// （pachicounter corect …）でコアがもう 1 つ起動し、動作中のコアのセッションに
+	// 書き込んでしまう。詳細は docs/adr/0011-operation-command-as-subcommand.md を参照。
+	if fs.NArg() > 0 {
+		err := fmt.Errorf("不明な引数です: %s", strings.Join(fs.Args(), " "))
+		fs.SetOutput(stderr)
+		fmt.Fprintln(stderr, "エラー: "+err.Error())
+		fmt.Fprintln(stderr)
 		printUsage(fs)
 		return opts, &usageError{err: err}
 	}
