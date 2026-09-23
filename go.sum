@@ -1,2 +1,4 @@
+github.com/yukkeorg/hidpin/host-go v0.0.0-20260922142056-89a549ddb46f h1:AxyMzKKQBMtW/7Ghn7JCIo3yRZb5cjD/kq7wAq237rY=
+github.com/yukkeorg/hidpin/host-go v0.0.0-20260922142056-89a549ddb46f/go.mod h1:6UWKxqeUE37e9Tqo/R6jEH0/hqRvVFQmNWlGYYi/aME=
 golang.org/x/sys v0.48.0 h1:bbX/i/6MgT9BVLM9RT1thmxL04yeTAhbEz4SyadbXoo=
 golang.org/x/sys v0.48.0/go.mod h1:hNLxWAXmnKAxqDtdwIYC4bM9oQPEecfsnNMuSxOs3og=

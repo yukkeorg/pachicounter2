@@ -37,6 +37,7 @@ PachiCounter
 - Go 1.24 以降（ビルド時のみ。cgo は使いません）
 - USB-HID で GPIO を出せるデバイス
   - [km2net USB-IO 2.0](http://km2net.com/usb-io2.0/index.shtml)（[秋月電子の互換品](http://akizukidenshi.com/catalog/g/gM-05131/)も可）
+  - [hidpin](https://github.com/yukkeorg/hidpin)（RP2040 のボードで作る。Linux のみ）
 - Linux または Windows
   - Linux は `/dev/hidraw` を直接読みます（udev ルールが必要）
   - Windows 向けのハードウェア層は未実装です。記録再生は動きます
@@ -55,6 +56,13 @@ PachiCounter
 
 外部出力端子はオープンコレクタなので、プルアップ抵抗と組み合わせると信号が出ている間
 LOW になります。既定でアクティブローとして扱います（`-active-low=false` で切れます）。
+
+ビットの番号はデバイスごとに決まります。hidpin ではビット n が GPIO n に当たり、`-wire` には
+0〜31 を書けます。hidpin が監視していないピンのビットは 0（アクティブローでは「信号が出ている」）
+になるので、配線は監視しているピンに書いてください。監視しているピンは接続時のログに出ますし、
+監視していないピンに配線していれば警告が出ます。既定の配線（ビット 0〜3）は Raspberry Pi Pico なら
+そのまま使えますが、Adafruit QT Py RP2040 には GPIO0〜2 が無いので、
+`-wire start=3,bonus=4,densapo=5` のように指定します。
 
 電サポ信号からは「玉が減らない状態にいる」ことしか分かりません。その区間が高確率
 （確変・ST）なのか通常確率（時短）なのかは機種の仕様知識であり、機種プラグインが判断します。
@@ -105,7 +113,7 @@ $ ./pachicounter -machine vb -rotation-rate 18 -densapo-base 0.85
 | フラグ | 意味 |
 |---|---|
 | `-machine` | 集計する機種の ID |
-| `-source` | 信号源: `usbhid`（既定）/ `file:<ログ>` / `loop:<ログ>`。usbhid は `usbhid:driver=<ドライバ名>,interval=<ポーリング間隔>` の形で設定を渡せる（`-list-sources` で一覧） |
+| `-source` | 信号源: `usbhid`（既定）/ `hidpin` / `file:<ログ>` / `loop:<ログ>`。usbhid は `usbhid:driver=<ドライバ名>,interval=<ポーリング間隔>`、hidpin は `hidpin:serial=<シリアル番号>`（2 台以上つないだとき）の形で設定を渡せる（`-list-sources` で一覧） |
 | `-wire` | 配線。`start=0,bonus=1,densapo=2` の形 |
 | `-rotation-rate` | 回転率（貸玉 250 個あたりの回転数）。台の調整値 |
 | `-densapo-base` | 電サポ中の玉持ち率。台の調整値 |

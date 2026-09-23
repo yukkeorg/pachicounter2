@@ -33,6 +33,7 @@ import (
 	// よってバイナリに含める。詳細は
 	// docs/adr/0003-compile-time-plugin-registration.md を参照。
 	_ "github.com/yukkeorg/pachicounter2/internal/hidgpio/usbio2"
+	_ "github.com/yukkeorg/pachicounter2/internal/source/hidpin"
 	_ "github.com/yukkeorg/pachicounter2/internal/source/replay"
 	_ "github.com/yukkeorg/pachicounter2/internal/source/usbhid"
 	_ "github.com/yukkeorg/pachicounter2/pkg/machine/stealth"
@@ -115,7 +116,14 @@ func run(args []string) error {
 		return printSources()
 	}
 
-	src, reg, err := source.Open(opts.sourceSpec, source.Env{Logger: log})
+	// 配線は信号源を開く前に読む。信号源によっては、その配線で信号を読めるかを確かめられる
+	// （hidpin は、監視していない GPIO を指していないかを見る）。
+	wiring, err := opts.wiring()
+	if err != nil {
+		return err
+	}
+
+	src, reg, err := source.Open(opts.sourceSpec, source.Env{Logger: log, Wiring: wiring})
 	if err != nil {
 		return err
 	}
@@ -125,11 +133,11 @@ func run(args []string) error {
 		return fmt.Errorf("機種を指定してください（例: pachicounter -machine stealth）。-list-machines で一覧が出ます")
 	}
 
-	wiring, err := config.ParseWiring(opts.wireSpec)
+	// 記録を流す信号源では、記録された配線に入れ替わっていることがあるので読み直す。
+	wiring, err = opts.wiring()
 	if err != nil {
 		return err
 	}
-	wiring.ActiveLow = opts.activeLow
 
 	// 再生は記録を流し直して確かめるための実行なので、保存先を開かず何も書かない。
 	// 実機と同じ保存先を使うと、直近のセッションの続きとみなされ、再生した信号が
@@ -287,6 +295,16 @@ func parseFlags(args []string, stderr io.Writer) (options, error) {
 	return opts, nil
 }
 
+// wiring は -wire と -active-low から配線を作る。
+func (o *options) wiring() (config.Wiring, error) {
+	w, err := config.ParseWiring(o.wireSpec)
+	if err != nil {
+		return config.Wiring{}, err
+	}
+	w.ActiveLow = o.activeLow
+	return w, nil
+}
+
 // printUsage は使い方を書く。
 func printUsage(fs *flag.FlagSet) {
 	out := fs.Output()
@@ -298,6 +316,7 @@ func printUsage(fs *flag.FlagSet) {
 	fmt.Fprintln(out, "  pachicounter -machine stealth")
 	fmt.Fprintln(out, "  pachicounter -machine vb -rotation-rate 18")
 	fmt.Fprintln(out, "  pachicounter -machine stealth -source usbhid:driver=usbio2")
+	fmt.Fprintln(out, "  pachicounter -machine stealth -source hidpin -wire start=3,bonus=4,densapo=5")
 	fmt.Fprintln(out, "  pachicounter -source file:session.jsonl")
 	fmt.Fprintln(out, "  pachicounter correct normal_rotations +1")
 	fmt.Fprintln(out, "\n操作コマンド（詳しくは pachicounter <サブコマンド> -h）:")

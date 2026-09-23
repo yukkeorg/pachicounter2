@@ -24,7 +24,13 @@ SUBSYSTEM=="hidraw", ATTRS{idVendor}=="1352", ATTRS{idProduct}=="0120", TAG+="ua
 # USB-IO 2.0 秋月電子互換品
 SUBSYSTEM=="hidraw", ATTRS{idVendor}=="1352", ATTRS{idProduct}=="0121", TAG+="uaccess"
 
+# hidpin（RP2040 で作った USB-HID の GPIO デバイス）。1209:0001 は pid.codes のテスト用 PID で、
+# 手元の別の試作品も同じ ID を使っていることがある。hidpin を別の ID でビルドしたときは
+# ここも合わせる（HIDPIN_VID / HIDPIN_PID で探す ID を変えたときも同じ）。
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="1209", ATTRS{idProduct}=="0001", TAG+="uaccess"
+
 # デーモンとして動かす場合の例。pachicounter グループを作って、動かすユーザを
 # そこに入れてから使う。
 # SUBSYSTEM=="hidraw", ATTRS{idVendor}=="1352", ATTRS{idProduct}=="0120", GROUP="pachicounter", MODE="0660"
 # SUBSYSTEM=="hidraw", ATTRS{idVendor}=="1352", ATTRS{idProduct}=="0121", GROUP="pachicounter", MODE="0660"
+# SUBSYSTEM=="hidraw", ATTRS{idVendor}=="1209", ATTRS{idProduct}=="0001", GROUP="pachicounter", MODE="0660"

@@ -2,7 +2,7 @@
 //
 // 機種プラグインと同じく動的ロードはせず、実装パッケージが init() で自己登録する。
 // -source には「名前」か「名前:引数」を渡し、引数の解釈は信号源ごとに任せる。
-// usbhid は key=value のカンマ区切り、file と loop は生信号ログのパスそのものを取る。
+// usbhid と hidpin は key=value のカンマ区切り、file と loop は生信号ログのパスそのものを取る。
 // 詳細は docs/adr/0005-signal-source-abstraction.md を参照。
 package source
 
@@ -36,6 +36,11 @@ const (
 type Env struct {
 	// Logger はログの出力先。
 	Logger *slog.Logger
+
+	// Wiring は指定された配線。信号源が、その配線で信号を読めるかを確かめるために使う
+	// （hidpin は、監視していない GPIO を指していないかを見る）。記録を流す信号源では、
+	// この後で記録された配線に入れ替わることがあるので当てにしない。
+	Wiring config.Wiring
 }
 
 // Registration は名簿に載せる信号源 1 種類。
