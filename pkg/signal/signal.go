@@ -54,13 +54,20 @@ func (r Role) Valid() bool {
 	return false
 }
 
-// Ports は信号源が読んだポートの生値。ビット位置と役割の対応は台ごとの配線で
-// 決まるため、この型は解釈を持たない。
-type Ports uint16
+// Ports は信号源が読んだポートの生値。ビット n はデバイスの入力 n に当たる
+// （hidpin では GPIO n）。ビット位置と役割の対応は台ごとの配線で決まるため、
+// この型は解釈を持たない。
+//
+// 32 ビットあるのは、GPIO を 30 本持つ hidpin の番号をそのまま配線に書けるように
+// するため。デバイスが持たない入力のビットは 0 のままになる。
+type Ports uint32
+
+// PortBits は Ports が持つビットの数。配線に書けるビット位置は 0 から PortBits-1 まで。
+const PortBits = 32
 
 // Bit はビット位置 n の状態を返す。
 func (p Ports) Bit(n int) bool {
-	if n < 0 || n >= 16 {
+	if n < 0 || n >= PortBits {
 		return false
 	}
 	return p&(1<<uint(n)) != 0

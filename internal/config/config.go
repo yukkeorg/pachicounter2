@@ -57,8 +57,8 @@ func ParseWiring(spec string) (Wiring, error) {
 		if err != nil {
 			return Wiring{}, fmt.Errorf("配線 %q のビット位置を解釈できません: %w", part, err)
 		}
-		if bit < 0 || bit >= 16 {
-			return Wiring{}, fmt.Errorf("配線 %q のビット位置が範囲外です（0〜15）", part)
+		if bit < 0 || bit >= signal.PortBits {
+			return Wiring{}, fmt.Errorf("配線 %q のビット位置が範囲外です（0〜%d）", part, signal.PortBits-1)
 		}
 
 		if existing, dup := w.Bits[role]; dup {

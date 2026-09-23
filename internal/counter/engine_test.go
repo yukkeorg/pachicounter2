@@ -25,9 +25,9 @@ const (
 // 配線はアクティブローなので、信号が出ているビットは 0 になる。テストの側で
 // この反転を書いておくことで、engine が反転を正しく扱っているかも一緒に見る。
 func ports(activeBits ...int) signal.Ports {
-	var p uint16 = 0xffff
+	var p uint32 = 0xffffffff
 	for _, bit := range activeBits {
-		p &= ^(uint16(1) << uint(bit))
+		p &= ^(uint32(1) << uint(bit))
 	}
 	return signal.Ports(p)
 }
@@ -338,6 +338,36 @@ func TestCorrectRejectsUnknownCounter(t *testing.T) {
 	}
 	if got := e.Counters().NormalRotations; got != 3 {
 		t.Errorf("補正後の通常時回転数 = %d, 期待は 3", got)
+	}
+}
+
+func TestHighBitsCanBeWired(t *testing.T) {
+	// hidpin はビット n が GPIO n に当たる。GPIO29 のような上位のビットに配線しても
+	// 数えられること。
+	plugin, err := machine.New("stealth", "")
+	if err != nil {
+		t.Fatalf("機種プラグインを作れません: %v", err)
+	}
+	wiring := config.Wiring{
+		Bits: map[signal.Role]int{
+			signal.RoleStart:   29,
+			signal.RoleBonus:   22,
+			signal.RoleDensapo: 3,
+		},
+		ActiveLow: true,
+	}
+	e, err := counter.New(plugin, wiring, config.DefaultTuning(), config.Ops{})
+	if err != nil {
+		t.Fatalf("集計エンジンを作れません: %v", err)
+	}
+
+	feed(e, []step{
+		{ports: ports()},
+		{after: time.Second, ports: ports(29)},
+		{after: 500 * time.Millisecond, ports: ports()},
+	})
+	if got := e.Counters().NormalRotations; got != 1 {
+		t.Errorf("通常時回転数 = %d, 期待は 1", got)
 	}
 }
 
